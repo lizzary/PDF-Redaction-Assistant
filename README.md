@@ -103,4 +103,4 @@ src/
 
 ## AI Tools used
 
-- **Claude**: UI/UX Design, documentation comments writing, README.md writing, final code review, unit test writing
+- **Claude code**: UI/UX Design, documentation comments writing, README.md writing, final code review, unit test writing
