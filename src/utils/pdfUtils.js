@@ -48,15 +48,14 @@ function buildCharIndexMap(textItems) {
 
   for (let i = 0; i < textItems.length; i++) {
     const item = textItems[i];
-    const str = item.str;
-    if (str.length === 0) continue;
 
-    // If not the first and there is text content, add a space separator
-    if (segments.length > 0 && str.length > 0) {
+    // Space between every pair of items, matching .join(' ') behavior
+    if (i > 0) {
       segments.push(' ');
-      charToItem.push(-1); // spaces don't correspond to any text item
+      charToItem.push(-1);
     }
 
+    const str = item.str;
     segments.push(str);
     for (let j = 0; j < str.length; j++) {
       charToItem.push(i);
@@ -97,42 +96,64 @@ export function findEntityBoundingBox(textItems, startIndex, endIndex, viewportH
     return null;
   }
 
-  // Find all text item indices covered by the entity
-  const itemIndices = new Set();
-  for (let i = startIndex; i < endIndex && i < charToItem.length; i++) {
-    if (charToItem[i] >= 0) {
-      itemIndices.add(charToItem[i]);
+  // Find the start position of each text item in the full text
+  const itemStartPositions = new Map();
+  for (let c = 0; c < charToItem.length; c++) {
+    const idx = charToItem[c];
+    if (idx >= 0 && !itemStartPositions.has(idx)) {
+      itemStartPositions.set(idx, c);
     }
   }
 
-  if (itemIndices.size === 0) return null;
+  // Group entity characters by text item, tracking precise char offsets within each item
+  const itemRanges = new Map(); // itemIdx -> { charStart, charEnd } (offsets within item.str)
 
-  // Compute union bounding box
-  let minX = Infinity;
-  let minY = Infinity; // smallest Y in PDF coords (bottom)
-  let maxX = -Infinity;
-  let maxY = -Infinity; // largest Y in PDF coords (top)
+  for (let c = startIndex; c < endIndex; c++) {
+    const itemIdx = charToItem[c];
+    if (itemIdx < 0) continue; // space between items
 
-  for (const idx of itemIndices) {
-    const item = textItems[idx];
+    const itemStart = itemStartPositions.get(itemIdx);
+    const offsetInItem = c - itemStart;
+
+    const existing = itemRanges.get(itemIdx);
+    if (existing) {
+      existing.charStart = Math.min(existing.charStart, offsetInItem);
+      existing.charEnd = Math.max(existing.charEnd, offsetInItem + 1);
+    } else {
+      itemRanges.set(itemIdx, { charStart: offsetInItem, charEnd: offsetInItem + 1 });
+    }
+  }
+
+  if (itemRanges.size === 0) return null;
+
+  // Compute bounding box from precise character positions within each item
+  let minXPdf = Infinity, minYPdf = Infinity, maxXPdf = -Infinity, maxYPdf = -Infinity;
+
+  for (const [itemIdx, { charStart, charEnd }] of itemRanges) {
+    const item = textItems[itemIdx];
     const tx = item.transform;
     const pdfX = tx[4];
     const pdfY = tx[5];
     const fontHeight = getFontHeight(item);
     const itemWidth = item.width > 0 ? item.width : item.str.length * fontHeight * 0.6;
+    const strLen = item.str.length;
 
-    minX = Math.min(minX, pdfX);
-    minY = Math.min(minY, pdfY);           // PDF底部（最小值）
-    maxX = Math.max(maxX, pdfX + itemWidth);
-    maxY = Math.max(maxY, pdfY + fontHeight); // PDF顶部（最大值）
+    // Interpolate x within the item based on character offset
+    const charXStart = pdfX + (charStart / strLen) * itemWidth;
+    const charXEnd = pdfX + (charEnd / strLen) * itemWidth;
+
+    minXPdf = Math.min(minXPdf, charXStart);
+    minYPdf = Math.min(minYPdf, pdfY);
+    maxXPdf = Math.max(maxXPdf, charXEnd);
+    maxYPdf = Math.max(maxYPdf, pdfY + fontHeight);
   }
 
   // Convert to CSS coordinate system (origin top-left)
   // PDF Y-axis points up → CSS Y-axis points down
-  const cssLeft = minX * scale;
-  const cssTop = viewportHeight - maxY * scale;  // flip Y: top = viewport height - max PDF Y
-  const cssWidth = (maxX - minX) * scale;
-  const cssHeight = (maxY - minY) * scale;
+  const cssLeft = minXPdf * scale;
+  const cssTop = viewportHeight - maxYPdf * scale;
+  const cssWidth = (maxXPdf - minXPdf) * scale;
+  const cssHeight = (maxYPdf - minYPdf) * scale;
 
   return {
     x: cssLeft,
