@@ -19,7 +19,7 @@ The app will open at `http://localhost:3000`.
 4. **Click any entity** in the right panel to jump to its page and see the highlight overlay.
 5. **Toggle sections** with the chevron buttons to show/hide date or name entities.
 
-## Screenshots & 
+## Screenshots
 see https://github.com/lizzary/PDF-Redaction-Assistant/blob/master/screen_shots.png
 ## Entity Extraction Approach
 
@@ -101,9 +101,6 @@ src/
     pdfUtils.js           PDF loading, text extraction, coordinate conversion
 ```
 
-## Assessment Criteria Alignment
+## AI Tools used
 
-- **Code Quality (30%)**: Modular component structure, shared state via Context, separation of concerns (extraction vs. rendering vs. UI), consistent async cancellation pattern, meaningful commit history.
-- **UI/UX (30%)**: Clean three-panel layout, color-coded highlights (yellow = date, blue = name), active states on thumbnails and entity list items, smooth scroll-to-page navigation, drag-and-drop upload.
-- **Problem Decomposition (25%)**: Hybrid extraction approach documented above, coordinate system conversion explained, false-positive mitigation strategy, character-level bounding box interpolation.
-- **Functionality (15%)**: PDF rendering, entity detection, highlight overlays, click-to-navigate, toggle sections — all working end-to-end.
+- **Claude**: UI/UX Design, documentation comments writing, README.md writing, final code review, unit test writing
